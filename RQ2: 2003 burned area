@@ -1,0 +1,123 @@
+
+// Import modis imagery.
+var image = ee.ImageCollection("MODIS/006/MCD64A1")
+  .filterBounds(chuk)
+  .select('BurnDate');
+
+//Adding in the satellite images for every year.
+var modis2003 = image.filterDate('2003-01-01', '2003-12-31');
+//Map.addLayer(modis2003);
+
+var modis2004 = image.filterDate('2004-01-01', '2004-12-31');
+//Map.addLayer(modis2004);
+
+var modis2005 = image.filterDate('2005-01-01', '2005-12-31');
+//Map.addLayer(modis2005);
+
+var modis2006 = image.filterDate('2006-01-01', '2006-12-31');
+//Map.addLayer(modis2006);
+  
+var modis2007 = image.filterDate('2007-01-01', '2007-12-31');
+//Map.addLayer(modis2007);
+
+var modis2008 = image.filterDate('2008-01-01', '2008-12-31');
+//Map.addLayer(modis2008);
+
+// MAKE A LIST OF YEARS, THEN FOR EACH YEAR FILTER THE COLLECTION, 
+// reduce by sum. Important to add system:time_start 
+// after reducing as this allows to filter by date later.
+var stepList = ee.List.sequence(2003,2008);
+
+//Mapping a function over the collection
+var filterCollection = stepList.map(function(year){
+  var startDate = ee.Date.fromYMD(year,1,1);
+  var endDate = ee.Date.fromYMD(year,12,31);
+  var composite_i = image.filterDate(startDate, endDate)
+                        //calculates the total over the year
+                        .sum()
+                        //able to filter image collection using time info
+                        .set('system:time_start',startDate);
+  return composite_i;
+});
+
+//filter the image collection based on parameters defined above
+var yearlycomposites = ee.ImageCollection(filterCollection);
+print(yearlycomposites, 'Masked and Filtered Composites');
+//successfully created a list of total composites of wanted years.
+
+// Add a band to each annual image which stores the area of each pixel (0 or AREA, depending on burned/unburned)
+var pixelAreas = yearlycomposites.map(function(image){
+  var area = image.multiply(ee.Image.pixelArea()).rename('AREA_m2');
+  return image.addBands(area); // trying to add a band to each of the annual images for area
+});
+
+var burncollection = pixelAreas.select(['AREA_m2']);
+
+var y2003 = burncollection.filterDate('2003-01-01', '2003-12-31')
+  .first()
+  .clip(chuk);
+
+var y2004 = burncollection.filterDate('2004-01-01', '2004-12-31')
+  .first()
+  .clip(chuk);
+
+var y2005 = burncollection.filterDate('2005-01-01', '2005-12-31')
+  .first()
+  .clip(chuk);
+
+var y2006 = burncollection.filterDate('2006-01-01', '2006-12-31')
+  .first()
+  .clip(chuk);
+
+var y2007 = burncollection.filterDate('2007-01-01', '2007-12-31')
+  .first()
+  .clip(chuk);
+  
+var y2008 = burncollection.filterDate('2008-01-01', '2008-12-31')
+  .first()
+  .clip(chuk);  
+  
+var baParams = {min: 0, max: 1, palette: ['4e0400', '951003', 'c61503', 'ff1901']};
+
+//Map.addLayer(y2003, baParams, '2003 BA');
+print(y2003);
+//Map.addLayer(y2004, baParams, '2004 BA');
+//Map.addLayer(y2005, baParams, '2005 BA');
+//Map.addLayer(y2006, baParams, '2006 BA');
+//Map.addLayer(y2007, baParams, '2007 BA');
+//Map.addLayer(y2008, baParams, '2008 BA');
+
+//var collection = function(image.burncollection)
+
+var combined_img = ee.ImageCollection([y2004, y2005, y2006, y2007, y2008]).mosaic();
+//Map.addLayer(combined_img, baParams);
+
+
+// finding the area only burnt in 2003 
+var burn2003 = y2003.subtract(combined_img); 
+//Map.addLayer(burn2003, baParams);
+//print(burn2003)
+
+// converting raster to vector
+//var vector = burn2003.toInt().reduceToVectors({
+//  geometry: chuk,
+//  scale: 1000,
+//  geometryType: 'polygon',
+//  maxPixels: 1e9,
+//    labelProperty: 'zone',
+//});  
+//Map.addLayer(vector);
+
+// Export the image, specifying scale and region.
+//Export.table.toAsset({
+//  collection: vector,
+//  description: 'exportvectorBurnArea2003',
+//  assetId: 'BA2003'
+//});
+
+// Export the image, specifying scale and region.
+//Export.table.toDrive({
+//  collection: vector,
+//  description: 'exportvectorBurnArea2003',
+//  fileFormat: 'SHP'
+//});
