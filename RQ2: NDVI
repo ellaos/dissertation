@@ -1,0 +1,59 @@
+// show site
+Map.addLayer(table);
+
+// Create a date range for the years of interest
+var years = ee.List.sequence(2002, 2008);
+//print(years);
+
+//MODIS Veg Indicies - calculating NDVI
+var MODIS = ee.ImageCollection("MODIS/006/MOD13A1")
+  .filterBounds(table)
+  .select('NDVI')
+  .filterDate('2002-01-01', '2009-12-31')
+  .map(function(img){return img.clip(table)});
+
+// scale the layer
+//var scale_factor = function(image) {
+//  return image.expression('float(b("NDVI")*0.0001)').copyProperties(image, ['system:time_start']) //the value 0.0001 will be multiplied to all pixels of our ImageCollection
+//};
+
+// scale the layer
+var scale_factor = function(image) {
+  return image.expression('float(b("NDVI")/10000)').copyProperties(image, ['system:time_start'])
+};
+
+// Apply the scaling factor
+var MODIS_scaled = MODIS.map(scale_factor);
+
+// generate annual average ndvi 
+var MODISannual = ee.ImageCollection.fromImages(
+  years.map(function (y) {
+    return MODIS_scaled
+    .filter(ee.Filter.calendarRange(y, y, 'year'))
+    .select("NDVI").max()
+    .set('system:time_start', ee.Date.fromYMD(y, 1, 1));
+  }));
+print(MODISannual);
+
+//Define chart parameters
+var chartParam = {
+ title: 'Annual average NDVI',
+  hAxis: {title: 'Year'},
+  vAxis: {title: 'Average NDVI'},
+};
+
+//Plot the chart
+var chart = ui.Chart.image.series({
+  imageCollection: MODISannual,
+  region: table,
+  reducer: ee.Reducer.max(),
+  scale: 500
+  
+});
+print(chart); 
+
+// visualize annual NDVI
+var Pallet = ['FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+'66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+'012E01', '011D01', '011301'] // store palette as variable               
+Map.addLayer(MODISannual, {min: -1, max: 1, palette: Pallet}, 'NDVI');
