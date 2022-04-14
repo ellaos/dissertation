@@ -1,0 +1,68 @@
+// Create a date range for the years of interest
+var dateRange = ee.List.sequence(2001, 2021);
+print(dateRange);
+
+// Create a binary classification where 1 is burned area and 0 is unburned area
+var burnedBinary = ee.ImageCollection(dateRange.map(function(year){ // mapping over years in the date range, creates an image collection where every image represents a year
+  var startDate = ee.Date.fromYMD(year, 1, 1);
+  var endDate = ee.Date.fromYMD(year, 12, 31);
+  var burned = burnimg.filter(ee.Filter.date(startDate, endDate)).select(['BurnDate']).max().gt(0).set("system:time_start", startDate).rename('BURNED');
+  return burned; 
+}));
+
+// Check this ran
+print('Classifying into 1/0 burned/unburned:', burnedBinary);
+
+// Add a band to each annual image which stores the area of each pixel (0 or AREA, depending on burned/unburned)
+var pixelAreas = burnedBinary.map(function(image){
+  var area = image.multiply(ee.Image.pixelArea()).rename('AREA_m2');
+  return image.addBands(area); // trying to add a band to each of the annual images for area
+});
+
+// Check this ran
+print('Adding the pixel area values:', pixelAreas);
+
+
+// For each year, sum the area property from all the pixels, then assign this to a new property of each image
+var finalStep = pixelAreas.map(function(image){
+  var totalArea = image.select(['AREA_m2']).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: table, 
+    scale: 10, 
+    bestEffort: true
+  });
+  var output = image.set('Total_burned_area:', totalArea);
+  return output;
+});
+
+// Check this ran
+print('Final step:', finalStep);
+
+// Produce a dictionary which contains the year as the key and the total burned area as the value
+var areaPerYear = finalStep.aggregate_array('Total_burned_area:');
+var dateRangeStr = dateRange.map(function(number){
+  return ee.String(number).slice(0, 4); 
+});
+var areaPerYearDict = ee.Dictionary.fromLists(dateRangeStr,areaPerYear);
+
+
+// Print the dictionary
+//print('Area per year:', areaPerYearDict);
+
+// Print a graph of the total burned area
+//print(ui.Chart.image.seriesByRegion({imageCollection:pixelAreas.select(['AREA_m2']), 
+                             // regions:chuk, 
+                             // reducer:ee.Reducer.sum(),
+                            //  scale:1000}).setOptions({title: 'Burn Area (m2)',
+                                       //                 lineWidth: 1,
+                                       //                 pointSize: 3}));
+
+// Export the data to a table, go to the Tasks tab to specify where the export goes to
+//var exportFeature = ee.Feature(null, areaPerYear); // Create a feature containing the data
+//var exportFC = ee.FeatureCollection([exportFeature]); // Create a feature collection to contain the feature
+//Export.table.toDrive({
+ // collection: finalStep,
+  //description: 'exportTableTest',
+ // fileFormat:'CSV'
+//});
+4
