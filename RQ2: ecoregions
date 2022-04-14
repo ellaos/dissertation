@@ -1,0 +1,28 @@
+var ecoregions = ee.FeatureCollection("RESOLVE/ECOREGIONS/2017")
+  .filterBounds(chuk);
+
+
+//var ecoimage = ecoregions.reduceToImage(
+ // ecoregions);
+
+//var eco = ecoregion.filter
+Map.addLayer(ecoregions);
+
+// converting raster to vector
+//var vector = ecoregions.reduceToVectors({
+// geometry: chuk,
+// scale: 1000,
+// geometryType: 'polygon',
+// maxPixels: 1e9,
+//labelProperty: 'zone',
+//});  
+//Map.addLayer(vector);
+
+
+// Export the image, specifying scale and region.
+Export.table.toDrive({
+  collection: ecoregions,
+  description: 'exportvectorecoregions',
+  fileFormat: 'SHP',
+});
+
