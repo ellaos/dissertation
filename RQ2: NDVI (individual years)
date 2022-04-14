@@ -1,0 +1,110 @@
+// Import modis imagery.
+var MODIS = ee.ImageCollection("MODIS/006/MOD13A1")
+  .filterBounds(burn)
+  .select('NDVI');
+
+// scale the layer
+var scale_factor = function(image) {
+  return image.expression('float(b("NDVI")/10000)').copyProperties(image, ['system:time_start'])
+};
+
+// Apply the scaling factor
+var MODIS_scaled = MODIS.map(scale_factor);
+
+//Adding in the satellite images for every year.
+var modis2003 = MODIS_scaled.filterDate('2003-01-01', '2003-12-31');
+//Map.addLayer(modis2003);
+
+var modis2004 = MODIS_scaled.filterDate('2004-01-01', '2004-12-31');
+//Map.addLayer(modis2004);
+
+var modis2005 = MODIS_scaled.filterDate('2005-01-01', '2005-12-31');
+//Map.addLayer(modis2005);
+
+var modis2006 = MODIS_scaled.filterDate('2006-01-01', '2006-12-31');
+//Map.addLayer(modis2006);
+  
+var modis2007 = MODIS_scaled.filterDate('2007-01-01', '2007-12-31');
+//Map.addLayer(modis2007);
+
+var modis2008 = MODIS_scaled.filterDate('2008-01-01', '2008-12-31');
+//Map.addLayer(modis2008);
+
+// MAKE A LIST OF YEARS, THEN FOR EACH YEAR FILTER THE COLLECTION, 
+// reduce by mean. Important to add system:time_start 
+// after reducing as this allows to filter by date later.
+var stepList = ee.List.sequence(2003,2008);
+
+
+//Mapping a function over the collection
+var filterCollection = stepList.map(function(year){
+  var startDate = ee.Date.fromYMD(year,1,1);
+  var endDate = ee.Date.fromYMD(year,12,31);
+  var composite_i = MODIS_scaled.filterDate(startDate, endDate)
+                        //calculates the mean over the year
+                        .mean()
+                        //able to filter image collection using time info
+                        .set('system:time_start',startDate);
+  return composite_i;
+});
+
+//filter the image collection based on parameters defined above
+var yearlycomposites = ee.ImageCollection(filterCollection);
+print(yearlycomposites, 'Masked and Filtered Composites');
+//successfully created a list of median composites of wanted years.
+
+//Now adding the NDVI to a function and applying it to the image collection.
+function ndvi(image){
+  var calculatendvi = image.select('NDVI');
+  var ndviimage = image.addBands(calculatendvi);
+  return ndviimage;
+}
+yearlycomposites = yearlycomposites.map(function(image){
+  return ndvi(image);
+});
+var ndvicollection = yearlycomposites.select('NDVI');
+
+
+
+var y2003 = ndvicollection.filterDate('2003-01-01', '2003-12-31')
+  .first()
+  .clip(burn);
+
+var y2004 = ndvicollection.filterDate('2004-01-01', '2004-12-31')
+  .first()
+  .clip(burn);
+
+var y2005 = ndvicollection.filterDate('2005-01-01', '2005-12-31')
+  .first()
+  .clip(burn);
+
+var y2006 = ndvicollection.filterDate('2006-01-01', '2006-12-31')
+  .first()
+  .clip(burn);
+
+var y2007 = ndvicollection.filterDate('2007-01-01', '2007-12-31')
+  .first()
+  .clip(burn);
+  
+var y2008 = ndvicollection.filterDate('2008-01-01', '2008-12-31')
+  .first()
+  .clip(burn);  
+
+// visualize annual NDVI  
+var baParams = {min: -1, max: 1, palette: ['FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+'66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+'012E01', '011D01', '011301']};
+
+//Map.addLayer(y2003, baParams, '2003 NDVI');
+//Map.addLayer(y2004, baParams, '2004 NDVI');
+//Map.addLayer(y2005, baParams, '2005 NDVI');
+//Map.addLayer(y2006, baParams, '2006 NDVI');
+//Map.addLayer(y2007, baParams, '2007 NDVI');
+//Map.addLayer(y2008, baParams, '2008 NDVI');
+
+// Export the image, specifying scale and region.
+Export.table.toDrive({
+  collection: burn,
+  description: 'exportvectorBurnArea2003',
+  fileFormat: 'SHP'
+});
