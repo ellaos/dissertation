@@ -1,0 +1,44 @@
+// AIM: to create a map of Burned Area (BA) from 2001-2021
+// 1: create a map where each total annual BA is displayed as a different colour
+// 2. create a map which shows the intersection of total annual BA, 
+// eg. different colours to show which areas have burnt multiple times
+
+// Import modis imagery.
+var image = ee.ImageCollection("MODIS/006/MCD64A1")
+  .filterBounds(chuk)
+  .select('BurnDate')
+  .map(function(img){return img.clip(chuk)})
+print(image)
+ // List of years
+var stepList = ee.List.sequence(2001,2021);
+
+//Mapping a function over the collection
+var filterCollection = stepList.map(function(year){
+  var startDate = ee.Date.fromYMD(year,1,1);
+  var endDate = ee.Date.fromYMD(year,12,31);
+  var composite_i = image.filterDate(startDate, endDate)
+                        //calculates the total over the year
+                        .sum()
+                        //able to filter image collection using time info
+                        .set('system:time_start',startDate);
+  return composite_i;
+});
+
+ //filter the image collection based on parameters defined above
+var yearlycomposites = ee.ImageCollection(filterCollection);
+print(yearlycomposites, 'Masked and Filtered Composites');
+//successfully created a list of total composites of wanted years.
+
+//remove the 'date' number so its just 1 and 0
+yearlycomposites = yearlycomposites.map(function(img){return img.divide(img)})
+yearlycomposites = yearlycomposites.toBands()
+yearlycomposites = yearlycomposites.reduce(ee.Reducer.sum())
+Map.addLayer(yearlycomposites)
+
+// Export the image, specifying scale and region.
+Export.image.toDrive({
+  image: yearlycomposites,
+  description: 'yearlycomposites',
+  scale: 1000,
+  region: chuk
+});
